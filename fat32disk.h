@@ -37,19 +37,6 @@ typedef struct BootEntry {
 } BootEntry;
 #pragma pack(pop)
 
-// disk file information to show
-#pragma pack(push,1)
-typedef struct DiskFileInfo{
-    void* start;
-    unsigned char n_fat;
-    unsigned short n_bytesPerSector; //sector_size
-    unsigned char n_sectorPerCluster; //cluster_size
-    unsigned short n_reservedSectors;
-    unsigned int rootCluster;
-    unsigned int clusterOffsetInSectors;
-} DiskFileInfo;
-#pragma pack(pop)
-
 // Directory Entry
 #pragma pack(push,1)
 typedef struct DirEntry {
@@ -68,7 +55,8 @@ typedef struct DirEntry {
 } DirEntry;
 #pragma pack(pop)
 
-BootEntry* readFileSystem(const char *diskName);
+int getFileDirectory(const char *diskName);
+BootEntry* readFileSystem(int fd);
 void showDiskInformation(BootEntry* disk);
 
 #endif

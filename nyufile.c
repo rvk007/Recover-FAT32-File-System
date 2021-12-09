@@ -10,17 +10,20 @@ int main(int argc, char **argv){
     int flag=0, anyOption=0;
 
     // get file system information
-    BootEntry* disk = readFileSystem(argv[optind]);
+    int fd = getFileDirectory(argv[optind]);
+    BootEntry* disk = readFileSystem(fd);
 
     // go through all of the flags
     while((flag=getopt(argc, argv, "ilr:R:s:")) != -1){
         anyOption=1;
         switch(flag){
             case 'i':
+                // printf("%d",disk->BPB_FATSz32);
                 showDiskInformation(disk);
                 break;
             case 'l':
-                printf("case l");
+                // printf("case l");
+                getRootDirectoryEntries(fd, disk);
                 break;
             case 'r':
                 printf("case r");
