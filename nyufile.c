@@ -10,29 +10,17 @@ int main(int argc, char **argv){
     int flag=0, anyOption=0;
 
     // get file system information
-    void *start = readFileSystem(argv[optind]);
-    DiskFileInfo *df = updateBootEntry(start);
-    void showDiskInformation(){
-        printf("Number of FATs = %d\n"
-               "Number of bytes per sector = %d\n"
-               "Number of sectors per cluster = %d\n"
-               "Number of reserved sectors = %d\n",
-               df->n_fat, df->n_bytesPerSector, df->n_sectorPerCluster, df->n_reservedSectors
-        );
-        fflush(stdout);
-    }
-    
+    BootEntry* disk = readFileSystem(argv[optind]);
+
     // go through all of the flags
     while((flag=getopt(argc, argv, "ilr:R:s:")) != -1){
         anyOption=1;
         switch(flag){
             case 'i':
-                showDiskInformation();
+                showDiskInformation(disk);
                 break;
             case 'l':
                 printf("case l");
-                initializeRootDirectory(df);
-                // showRootDirectory(strt)
                 break;
             case 'r':
                 printf("case r");

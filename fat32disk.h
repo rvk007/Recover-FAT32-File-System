@@ -68,7 +68,7 @@ typedef struct DirEntry {
 } DirEntry;
 #pragma pack(pop)
 
-void *readFileSystem(const char *diskName);
-DiskFileInfo* updateBootEntry(void* start);
+BootEntry* readFileSystem(const char *diskName);
+void showDiskInformation(BootEntry* disk);
 
 #endif
