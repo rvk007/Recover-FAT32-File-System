@@ -28,11 +28,11 @@ BootEntry* readFileSystem(int fd){
 }
 
 void showDiskInformation(BootEntry* disk){
-        printf("Number of FATs = %d\n"
-               "Number of bytes per sector = %d\n"
-               "Number of sectors per cluster = %d\n"
-               "Number of reserved sectors = %d\n",
-               disk->BPB_NumFATs, disk->BPB_BytsPerSec, disk->BPB_SecPerClus, disk->BPB_RsvdSecCnt
-        );
-        fflush(stdout);
-    }
+    printf("Number of FATs = %d\n"
+            "Number of bytes per sector = %d\n"
+            "Number of sectors per cluster = %d\n"
+            "Number of reserved sectors = %d\n",
+            disk->BPB_NumFATs, disk->BPB_BytsPerSec, disk->BPB_SecPerClus, disk->BPB_RsvdSecCnt
+    );
+    fflush(stdout);
+}

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "fat32disk.h"
 #include "directory.h"
@@ -18,11 +19,9 @@ int main(int argc, char **argv){
         anyOption=1;
         switch(flag){
             case 'i':
-                // printf("%d",disk->BPB_FATSz32);
                 showDiskInformation(disk);
                 break;
             case 'l':
-                // printf("case l");
                 getRootDirectoryEntries(fd, disk);
                 break;
             case 'r':
