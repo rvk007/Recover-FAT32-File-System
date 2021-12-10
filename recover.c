@@ -37,7 +37,7 @@ void unmapDisk(unsigned char* file_content, int fileSize){
     munmap(file_content, fileSize);
 }
 
-void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename, int nEntries, int currCluster){
+void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename, int nEntries){
     unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs * disk->BPB_FATSz32);
     unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
 
@@ -67,7 +67,11 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
         perror("Error while reading file stat");
     }
     unsigned char* file_content  = mmap(NULL , fs.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
+    int fileCount=0;
+    // store first occurence
+    int nEntries1=0;
+    DirEntry* dirEntry1;
+    
     do{
         DirEntry* dirEntry = getclusterPtr(file_content,disk,currCluster);
         for(int m=0;m<totalPossibleEntry;m++){
@@ -79,33 +83,18 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
                 if (dirEntry->DIR_Name[1]==filename[1]){
                     char *recFilename = getfilename(dirEntry);
                     if(strcmp(recFilename+1,filename+1)==0){
-                        updateRootDir(file_content, disk, filename, nEntries, currCluster);
 
-                        if (dirEntry->DIR_FileSize > disk->BPB_SecPerClus * disk->BPB_BytsPerSec){
-                            int fileSize = dirEntry->DIR_FileSize;
-                            int nBytesPerCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
-                            int n_Clusters = 0;
-                            int startCluster = dirEntry->DIR_FstClusHI << 2 | dirEntry->DIR_FstClusLO;
-
-                            if (fileSize % nBytesPerCluster)
-                                n_Clusters = fileSize/nBytesPerCluster + 1;
-                            else
-                                n_Clusters = fileSize/nBytesPerCluster;
-                            
-                            for(int i=1;i<n_Clusters;i++){
-                                updateFat(file_content , disk, startCluster, startCluster+1);
-                                startCluster++;
-                            }
-                            updateFat(file_content , disk, startCluster, 0x0ffffff8);
+                        // more than one file with same name except first character
+                        if (fileCount<1){
+                            nEntries1=nEntries;
+                            dirEntry1=dirEntry;
+                            fileCount++;
                         }
-                        else
-                            updateFat(file_content , disk, currCluster+1, 0x0ffffff8); // why +1 ?? but works
-                        
-                        unmapDisk(file_content, fs.st_size);
-                        
-                        printf("%s: successfully recovered\n",filename);
-                        fflush(stdout);
-                        return 1;
+                        else{
+                            printf("%s: multiple candidates found\n",filename);
+                            fflush(stdout);
+                            return 1;
+                        }
                     }
                 }
             }
@@ -118,6 +107,35 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
         }
         currCluster=*fat;
     } while(1);
+
+    if (fileCount==1){
+        updateRootDir(file_content, disk, filename, nEntries1);
+
+        if (dirEntry1->DIR_FileSize > disk->BPB_SecPerClus * disk->BPB_BytsPerSec){
+            int fileSize = dirEntry1->DIR_FileSize;
+            int nBytesPerCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
+            int n_Clusters = 0;
+            int startCluster = dirEntry1->DIR_FstClusHI << 2 | dirEntry1->DIR_FstClusLO;
+
+            if (fileSize % nBytesPerCluster)
+                n_Clusters = fileSize/nBytesPerCluster + 1;
+            else
+                n_Clusters = fileSize/nBytesPerCluster;
+            
+            for(int i=1;i<n_Clusters;i++){
+                updateFat(file_content , disk, startCluster, startCluster+1);
+                startCluster++;
+            }
+            updateFat(file_content , disk, startCluster, 0x0ffffff8);
+        }
+        else
+            updateFat(file_content , disk, currCluster+1, 0x0ffffff8); // why +1 ?? but works
+        unmapDisk(file_content, fs.st_size);
+                        
+        printf("%s: successfully recovered\n",filename);
+        fflush(stdout);
+        return 1;
+    }
     return -1;
 }
 
