@@ -6,9 +6,13 @@
 
 #include "fat32disk.h"
 #include "directory.h"
+#include "recover.h"
+#define print(d) printf("%d\n",d)
 
 int main(int argc, char **argv){
     int flag=0, anyOption=0;
+    int information=0, listRootDir=0, recoverRegFile=0;
+    char *recOptarg;
 
     // get file system information
     int fd = getFileDirectory(argv[optind]);
@@ -19,13 +23,14 @@ int main(int argc, char **argv){
         anyOption=1;
         switch(flag){
             case 'i':
-                showDiskInformation(disk);
+                information=1;
                 break;
             case 'l':
-                getRootDirectoryEntries(fd, disk);
+                listRootDir=1;
                 break;
             case 'r':
-                printf("case r");
+                recoverRegFile=1;
+                recOptarg = optarg;
                 break;
             case 'R':
                 printf("case R");
@@ -34,19 +39,21 @@ int main(int argc, char **argv){
                 printf("case s");
                 break;
             default:
-                exit(1);
+                showUsage();
+                break;
         }
     }
+    
+    if (anyOption==0)
+        showUsage();
 
-    // if no flag is given show the usage and exit
-    if (anyOption==0){
-        printf("Usage: ./nyufile disk <options>\n"
-                "   -i                     Print the file system information.\n"
-                "   -l                     List the root directory.\n"
-                "   -r filename [-s sha1]  Recover a contiguous file.\n"
-                "   -R filename -s sha1    Recover a possibly non-contiguous file.\n")
-        ;
-        fflush(stdout);
-        exit(1);
+    if (information)
+        showDiskInformation(disk);
+    else if (listRootDir)
+        getRootDirectoryEntries(fd, disk);
+    else if(recoverRegFile){
+        if (recOptarg == NULL)
+            showUsage();
+        recoverFile(fd, disk, recOptarg);
     }
 }

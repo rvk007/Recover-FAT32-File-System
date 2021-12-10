@@ -55,8 +55,9 @@ typedef struct DirEntry {
 } DirEntry;
 #pragma pack(pop)
 
-int getFileDirectory(const char *diskName);
+unsigned int getFileDirectory(const char *diskName);
 BootEntry* readFileSystem(int fd);
 void showDiskInformation(BootEntry* disk);
+void showUsage();
 
 #endif

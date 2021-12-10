@@ -13,18 +13,18 @@ bool isDirectory(DirEntry* dirEntry){
     return dirEntry->DIR_Attr == 0x10;
 }
 
-char* getDisk(int fd){
+char* getDisk(unsigned int fd){
     struct stat fs;
     if(fstat(fd, &fs) == -1)
     {
         perror("Error while reading file stat");
     }
-    return mmap(NULL , fs.st_size, PROT_READ, MAP_PRIVATE, fd, 0);;
+    return mmap(NULL , fs.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 }
 
-DirEntry* getclusterPtr(char* file_content, BootEntry* disk, int cluster){
-    int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32) + (cluster- 2)*disk->BPB_SecPerClus;
-    int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
+DirEntry* getclusterPtr(char* file_content, BootEntry* disk, unsigned int cluster){
+    unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32) + (cluster- 2)*disk->BPB_SecPerClus;
+    unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
 
     DirEntry* dirEntry = (DirEntry*)(file_content + rootClusterOffset);
     if (dirEntry==NULL){
@@ -62,9 +62,9 @@ void showRootDirectory(DirEntry* dirEntry){
 
 void getRootDirectoryEntries(int fd, BootEntry* disk){
     
-    int nEntries = 0;
-    int currCluster = disk->BPB_RootClus;
-    int totalPossibleEntry = (disk->BPB_SecPerClus * disk->BPB_BytsPerSec)/sizeof(DirEntry);
+    unsigned int nEntries = 0;
+    unsigned int currCluster = disk->BPB_RootClus;
+    unsigned int totalPossibleEntry = (disk->BPB_SecPerClus * disk->BPB_BytsPerSec)/sizeof(DirEntry);
 
     unsigned char *file_content = getDisk(fd);
 

@@ -1,4 +1,5 @@
-dump
 fat32.disk
 mount.sh
 umount.sh
+dump*
+*.o

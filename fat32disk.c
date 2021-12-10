@@ -8,8 +8,8 @@
 
 #include "fat32disk.h"
 
-int getFileDirectory(const char *diskName){
-    int fd = open(diskName, O_RDONLY);
+unsigned int getFileDirectory(const char *diskName){
+    int fd = open(diskName, O_RDWR);
     if (fd<0){
         perror("Disk file could not be opened!");
         exit(1);
@@ -35,4 +35,15 @@ void showDiskInformation(BootEntry* disk){
             disk->BPB_NumFATs, disk->BPB_BytsPerSec, disk->BPB_SecPerClus, disk->BPB_RsvdSecCnt
     );
     fflush(stdout);
+}
+
+void showUsage(){
+    printf("Usage: ./nyufile disk <options>\n"
+            "   -i                     Print the file system information.\n"
+            "   -l                     List the root directory.\n"
+            "   -r filename [-s sha1]  Recover a contiguous file.\n"
+            "   -R filename -s sha1    Recover a possibly non-contiguous file.\n")
+    ;
+    fflush(stdout);
+    exit(1);
 }
