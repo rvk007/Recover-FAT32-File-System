@@ -5,11 +5,59 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <openssl/sha.h>
 
 #include "fat32disk.h"
 #include "directory.h"
+#define SHA_DIGEST_LENGTH 20
 #define print(d) printf("%d\n",d)
 #define prints(s) printf("%s\n",s)
+
+int nOfContiguousCluster(BootEntry *disk, DirEntry *dirEntry){
+    int fileSize = dirEntry->DIR_FileSize;
+    int nBytesPerCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
+    int n_Clusters = 0;
+
+    if (fileSize % nBytesPerCluster)
+        n_Clusters = fileSize/nBytesPerCluster + 1;
+    else
+        n_Clusters = fileSize/nBytesPerCluster;
+    return n_Clusters;
+}
+
+bool checkSHA(unsigned char *shaFile, char *shaUser){
+    char shaToChar[SHA_DIGEST_LENGTH*2];
+
+    for(int i = 0; i < SHA_DIGEST_LENGTH; i++)
+        sprintf(shaToChar+(i*2), "%02x", shaFile[i]);
+    if(strcmp(shaToChar, shaUser) == 0)
+        return true;
+    return false;
+}
+
+unsigned char* getShaOfFileContent(BootEntry *disk, DirEntry *dirEntry, unsigned char* file_content){
+    int n_Clusters = nOfContiguousCluster(disk, dirEntry);
+    int startCluster = dirEntry->DIR_FstClusHI << 2 | dirEntry->DIR_FstClusLO;
+    unsigned char *fileData = (unsigned char*)malloc(dirEntry->DIR_FileSize * sizeof(unsigned char*));
+    unsigned char *sha = (unsigned char*)malloc(SHA_DIGEST_LENGTH * sizeof(unsigned char*));
+
+    printf("n_Clusters %d",n_Clusters);
+    printf("startCluster %d",startCluster);
+    int currLen=0
+    if (n_Clusters>1){
+        
+    }
+    else{
+        printf("In else");
+        unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32) + (startCluster- 2)*disk->BPB_SecPerClus;
+        unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
+        for(int i=0;i<dirEntry->DIR_FileSize;i++){
+            fileData[i] = file_content[rootClusterOffset+i];
+        }
+    }
+    SHA1(fileData, dirEntry->DIR_FileSize, sha);
+    return sha;
+}
 
 unsigned char* getfilename(DirEntry* dirEntry){
     unsigned char *ptrFile = malloc(11);
@@ -46,6 +94,7 @@ void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename
 }
 
 void updateFat(unsigned char* file_content , BootEntry* disk, int currCluster, unsigned int value){
+    // FIXME:can be multiple Fats convert this to a loop
     // update fat 1
     unsigned int *fat1 = (unsigned int*)(file_content + disk->BPB_RsvdSecCnt * disk->BPB_BytsPerSec + 4*currCluster);
     *fat1 = value;
@@ -54,7 +103,7 @@ void updateFat(unsigned char* file_content , BootEntry* disk, int currCluster, u
     *fat2 = value;
 }
 
-int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
+int getDeletedDirEntry(int fd, BootEntry* disk, char *filename, char *shaFile){
     unsigned int nEntries=0;
     unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32);
     unsigned int rootClusterOffset = rootSector * disk->BPB_BytsPerSec;
@@ -83,17 +132,27 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
                 if (dirEntry->DIR_Name[1]==filename[1]){
                     char *recFilename = getfilename(dirEntry);
                     if(strcmp(recFilename+1,filename+1)==0){
-
-                        // more than one file with same name except first character
-                        if (fileCount<1){
-                            nEntries1=nEntries;
-                            dirEntry1=dirEntry;
-                            fileCount++;
+                        
+                        if (shaFile){ // if sha is provided to recover the file
+                            bool shaMatched = checkSHA(getShaOfFileContent(disk, dirEntry, file_content), shaFile);
+                            if (shaMatched){
+                                fileCount=1;
+                                nEntries1=nEntries;
+                                dirEntry1=dirEntry;
+                            }
                         }
                         else{
-                            printf("%s: multiple candidates found\n",filename);
-                            fflush(stdout);
-                            return 1;
+                            // more than one file with same name except first character
+                            if (fileCount<1){
+                                nEntries1=nEntries;
+                                dirEntry1=dirEntry;
+                                fileCount++;
+                            }
+                            else{
+                                printf("%s: multiple candidates found\n",filename);
+                                fflush(stdout);
+                                return 1;
+                            }
                         }
                     }
                 }
@@ -110,17 +169,10 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
 
     if (fileCount==1){
         updateRootDir(file_content, disk, filename, nEntries1);
-
-        if (dirEntry1->DIR_FileSize > disk->BPB_SecPerClus * disk->BPB_BytsPerSec){
-            int fileSize = dirEntry1->DIR_FileSize;
-            int nBytesPerCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
-            int n_Clusters = 0;
+        int n_Clusters = nOfContiguousCluster(disk, dirEntry1);
+        if (n_Clusters>1){
+            
             int startCluster = dirEntry1->DIR_FstClusHI << 2 | dirEntry1->DIR_FstClusLO;
-
-            if (fileSize % nBytesPerCluster)
-                n_Clusters = fileSize/nBytesPerCluster + 1;
-            else
-                n_Clusters = fileSize/nBytesPerCluster;
             
             for(int i=1;i<n_Clusters;i++){
                 updateFat(file_content , disk, startCluster, startCluster+1);
@@ -139,9 +191,11 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename){
     return -1;
 }
 
-void recoverFile(int fd, BootEntry* disk, char *filename){
-    if (getDeletedDirEntry(fd, disk, filename) == -1){
+void recoverFile(int fd, BootEntry* disk, char *filename, char *shaFile){
+    if (getDeletedDirEntry(fd, disk, filename, shaFile) == -1){
         printf("%s: file not found\n",filename);
         fflush(stdout);
     }
 }
+
+// sha1 of HELLO.TXT    cd50d19784897085a8d0e3e413f8612b097c03f1

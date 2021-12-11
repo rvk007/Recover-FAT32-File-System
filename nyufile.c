@@ -11,12 +11,8 @@
 
 int main(int argc, char **argv){
     int flag=0, anyOption=0;
-    int information=0, listRootDir=0, recoverRegFile=0;
-    char *recOptarg;
-
-    // get file system information
-    int fd = getFileDirectory(argv[optind]);
-    BootEntry* disk = readFileSystem(fd);
+    int information=0, listRootDir=0, recoverRegFile=0, sha=0;
+    char *recOptarg, *shaOptarg;
 
     // go through all of the flags
     while((flag=getopt(argc, argv, "ilr:R:s:")) != -1){
@@ -36,7 +32,8 @@ int main(int argc, char **argv){
                 printf("case R");
                 break;
             case 's':
-                printf("case s");
+                sha = 1;
+                shaOptarg = optarg;
                 break;
             default:
                 showUsage();
@@ -44,16 +41,30 @@ int main(int argc, char **argv){
         }
     }
     
-    if (anyOption==0)
+    if (anyOption==0 || optind==argc)
         showUsage();
 
+    // get file system information
+    int fd = getFileDirectory(argv[optind]);
+    BootEntry* disk = readFileSystem(fd);
+    
     if (information)
         showDiskInformation(disk);
     else if (listRootDir)
         getRootDirectoryEntries(fd, disk);
-    else if(recoverRegFile){
+    else if(sha){ // use sha only when -r flag is given
+        if(recoverRegFile){
+            if (recOptarg == NULL)
+            showUsage();
+        recoverFile(fd, disk, recOptarg, shaOptarg);
+        }
+        else{
+            showUsage();
+        }
+    }
+    else if(recoverRegFile && !sha){ // only recover; no sha
         if (recOptarg == NULL)
             showUsage();
-        recoverFile(fd, disk, recOptarg);
+        recoverFile(fd, disk, recOptarg, NULL);
     }
 }

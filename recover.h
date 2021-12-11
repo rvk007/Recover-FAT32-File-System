@@ -2,5 +2,5 @@
 #define DIRECTORY_H
 
 #include "fat32disk.h"
-void recoverFile(int fd, BootEntry* disk, char *filename);
+void recoverFile(int fd, BootEntry* disk, char *filename,char *shaFile);
 #endif
