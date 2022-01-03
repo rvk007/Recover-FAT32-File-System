@@ -3,3 +3,5 @@ mount.sh
 umount.sh
 dump*
 *.o
+grading/
+*.tar.xz
