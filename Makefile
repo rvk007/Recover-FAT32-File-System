@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g #-pedantic -std=gnu17 -Wall -Wextra #-Werror 
+CFLAGS=-g -pedantic -std=gnu99 -Wall -Wextra #-Werror
 
 .PHONY: all
 all: nyufile
@@ -16,5 +16,3 @@ recover.o: recover.c recover.h directory.h
 .PHONY: clean
 clean:
 	rm -f *.o nyufile
-
-
