@@ -61,7 +61,7 @@ void showRootDirectory(DirEntry* dirEntry){
 }
 
 void getRootDirectoryEntries(int fd, BootEntry* disk){
-    
+
     unsigned int nEntries = 0;
     unsigned int currCluster = disk->BPB_RootClus;
     unsigned int totalPossibleEntry = (disk->BPB_SecPerClus * disk->BPB_BytsPerSec)/sizeof(DirEntry);
@@ -77,7 +77,7 @@ void getRootDirectoryEntries(int fd, BootEntry* disk){
 
             if(dirEntry->DIR_Name[0] != 0xe5){      // do not show deleted files
                 showRootDirectory(dirEntry);
-                int startCluster = dirEntry->DIR_FstClusHI << 2 | dirEntry->DIR_FstClusLO;
+                int startCluster = dirEntry->DIR_FstClusHI << 16 | dirEntry->DIR_FstClusLO;
                 printf(" (size = %d, starting cluster = %d)\n",dirEntry->DIR_FileSize, startCluster);
                 nEntries++;
             }
