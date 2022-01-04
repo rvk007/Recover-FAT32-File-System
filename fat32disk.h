@@ -1,4 +1,3 @@
-
 #ifndef FATFILESYSTEM_H
 #define FATFILESYSTEM_H
 
@@ -37,7 +36,6 @@ typedef struct BootEntry {
 } BootEntry;
 #pragma pack(pop)
 
-// Directory Entry
 #pragma pack(push,1)
 typedef struct DirEntry {
   unsigned char  DIR_Name[11];      // File name
