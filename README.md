@@ -23,11 +23,11 @@ To compile, run the below command
 $ make
 ```
 
-To use this tool you need the binary file of the FAT32 disk. To know how to create a FAT32 disk click [here]().
+To use this tool you need the binary file of the FAT32 disk. To know how to create a FAT32 disk click [here](https://github.com/rvk007/Recover-FAT32-File-System#create-a-fat32-disk).
 
 ## Usage
 
-To see the meanings of all the flags of the tool just run `./file`" and it will print the below output:
+To see the meanings of all the flags of the tool just run `./file` command:
 
 ```
 $ ./file
@@ -38,7 +38,7 @@ Usage: ./nyufile disk <options>
   -R filename -s sha1    Recover a possibly non-contiguous file.
 ```
 
-### Show the file system information
+### Print the file system information
 
 ```
 $ ./file <disk> -i
@@ -54,7 +54,7 @@ Number of sectors per cluster = 1
 Number of reserved sectors = 32
 ```
 
-### List the contents of the root directory
+### List the root directory
 
 ```
 $ ./file <disk> -l
@@ -76,8 +76,7 @@ Total number of entries = 7
 
 ### Recover a file
 
-To recover a file, it must be marked as deleted in the file system. The steps to delete a file are be accessed [here]().
-
+To recover a file, it must be marked as deleted in the file system. The steps to delete a file are be accessed [here](https://github.com/rvk007/Recover-FAT32-File-System#delete-a-file).
 You can check if the file is deleted or not using the above command.
 
 ```
@@ -143,7 +142,7 @@ LARGE.TXT: multiple candidates found
 To avoid this situation we can provide SHA-1 hash of the file. SHA-1 hash is 160-bit fingerprint of a file. It is unique for each file and depends on the file content. To get the SHA-1 hash of your file run the below command:
 
 ```
-sha1sum <filename>
+$ sha1sum <filename>
 ```
 
 For example, to generate the SHA-1 hash of LARGE.TXT file, run the below command:
