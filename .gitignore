@@ -5,3 +5,4 @@ dump*
 *.o
 grading/
 *.tar.xz
+.DS_Store
