@@ -10,8 +10,6 @@
 #include "fat32disk.h"
 #include "directory.h"
 #define SHA_DIGEST_LENGTH 20
-#define print(d) printf("%d\n",d)
-#define prints(s) printf("%s\n",s)
 
 int nOfContiguousCluster(BootEntry *disk, DirEntry *dirEntry){
     int fileSize = dirEntry->DIR_FileSize;
@@ -37,7 +35,7 @@ bool checkSHA(unsigned char *shaFile, char *shaUser){
 
 unsigned char* getShaOfFileContent(BootEntry *disk, DirEntry *dirEntry, unsigned char* file_content){
     int n_Clusters = nOfContiguousCluster(disk, dirEntry);
-    int startCluster = dirEntry->DIR_FstClusHI << 2 | dirEntry->DIR_FstClusLO;
+    int startCluster = dirEntry->DIR_FstClusHI << 16 | dirEntry->DIR_FstClusLO;
     unsigned char *fileData = (unsigned char*)malloc(dirEntry->DIR_FileSize * sizeof(unsigned char*));
     unsigned char *sha = (unsigned char*)malloc(SHA_DIGEST_LENGTH * sizeof(unsigned char*));
 
@@ -46,8 +44,8 @@ unsigned char* getShaOfFileContent(BootEntry *disk, DirEntry *dirEntry, unsigned
         for(int i=0; i<n_Clusters;i++){
             unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32) + (startCluster- 2)*disk->BPB_SecPerClus;
             unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
-            
-            int bytesInCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
+
+            unsigned int bytesInCluster = disk->BPB_SecPerClus * disk->BPB_BytsPerSec;
             int currReadLen = i<n_Clusters-1 ? bytesInCluster : dirEntry->DIR_FileSize - i * bytesInCluster;
             for(int i=0;i<currReadLen;i++){
                 fileData[currLen] = file_content[rootClusterOffset+i];
@@ -59,7 +57,7 @@ unsigned char* getShaOfFileContent(BootEntry *disk, DirEntry *dirEntry, unsigned
     else{
         unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32) + (startCluster- 2)*disk->BPB_SecPerClus;
         unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
-        for(int i=0;i<dirEntry->DIR_FileSize;i++){
+        for(unsigned int i=0;i<dirEntry->DIR_FileSize;i++){
             fileData[i] = file_content[rootClusterOffset+i];
         }
     }
@@ -68,7 +66,7 @@ unsigned char* getShaOfFileContent(BootEntry *disk, DirEntry *dirEntry, unsigned
 }
 
 unsigned char* getfilename(DirEntry* dirEntry){
-    unsigned char *ptrFile = malloc(11);
+    unsigned char *ptrFile = malloc(12 * sizeof(unsigned char *));
     unsigned int idx=0;
     for(int i=0;i<8;i++){
         if(dirEntry->DIR_Name[i]==' ')
@@ -76,16 +74,20 @@ unsigned char* getfilename(DirEntry* dirEntry){
         ptrFile[idx] = dirEntry->DIR_Name[i];
         idx++;
     }
+
     if(dirEntry->DIR_Name[8]!=' '){
         ptrFile[idx] = '.';
         idx++;
-        for(int i=8;i<12;i++){
-            if(dirEntry->DIR_Name[i]==' ')
-                break;
-            ptrFile[idx] = dirEntry->DIR_Name[i];
-            idx++;
-        }
     }
+
+    for(int i=8;i<12;i++){
+        if(dirEntry->DIR_Name[i]==' ')
+            break;
+        ptrFile[idx] = dirEntry->DIR_Name[i];
+        idx++;
+    }
+
+    ptrFile[idx] = '\0';
     return ptrFile;
 }
 
@@ -93,8 +95,8 @@ void unmapDisk(unsigned char* file_content, int fileSize){
     munmap(file_content, fileSize);
 }
 
-void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename, int nEntries, int currCluster){
-    unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs * disk->BPB_FATSz32);// + (currCluster- 2) * disk->BPB_SecPerClus;
+void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename, int nEntries){
+    unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs * disk->BPB_FATSz32);
     unsigned int rootClusterOffset = rootSector*disk->BPB_BytsPerSec;
 
     file_content[rootClusterOffset + nEntries] = (unsigned char) filename[0];
@@ -102,19 +104,14 @@ void updateRootDir(unsigned char* file_content , BootEntry* disk, char *filename
 }
 
 void updateFat(unsigned char* file_content , BootEntry* disk, int currCluster, unsigned int value){
-    // FIXME:can be multiple Fats convert this to a loop
-    // update fat 1
-    unsigned int *fat1 = (unsigned int*)(file_content + disk->BPB_RsvdSecCnt * disk->BPB_BytsPerSec + 4*currCluster);
-    *fat1 = value;
-    // update fat 2
-    unsigned int *fat2 = (unsigned int*)(file_content + (disk->BPB_RsvdSecCnt + disk->BPB_FATSz32) * disk->BPB_BytsPerSec  + 4*currCluster);
-    *fat2 = value;
+    for (int i=0; i<disk->BPB_NumFATs; i++){
+        unsigned int *fat = (unsigned int*)(file_content + (disk->BPB_RsvdSecCnt + i * disk->BPB_FATSz32) * disk->BPB_BytsPerSec  + 4*currCluster);
+        *fat = value;
+    }
 }
 
 int getDeletedDirEntry(int fd, BootEntry* disk, char *filename, char *shaFile){
     unsigned int nEntries=0;
-    unsigned int rootSector = (disk->BPB_RsvdSecCnt + disk->BPB_NumFATs*disk->BPB_FATSz32);
-    unsigned int rootClusterOffset = rootSector * disk->BPB_BytsPerSec;
     unsigned int currCluster = disk->BPB_RootClus;
     unsigned int totalPossibleEntry = (disk->BPB_SecPerClus * disk->BPB_BytsPerSec)/sizeof(DirEntry);
 
@@ -129,19 +126,17 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename, char *shaFile){
     int nEntries1=0;
     int currCluster1=0;
     DirEntry* dirEntry1;
-    
+
     do{
         DirEntry* dirEntry = getclusterPtr(file_content,disk,currCluster);
-        for(int m=0;m<totalPossibleEntry;m++){
+        for(unsigned int m=0;m<totalPossibleEntry;m++){
             if (dirEntry->DIR_Attr == 0x00){        // no more dirEntry after this
                 break;
             }
-
             if(isDirectory(dirEntry)==0 && dirEntry->DIR_Name[0] == 0xe5){      // do not show deleted files
                 if (dirEntry->DIR_Name[1]==filename[1]){
                     char *recFilename = getfilename(dirEntry);
                     if(strcmp(recFilename+1,filename+1)==0){
-                        
                         if (shaFile){ // if sha is provided to recover the file
                             bool shaMatched = checkSHA(getShaOfFileContent(disk, dirEntry, file_content), shaFile);
                             if (shaMatched){
@@ -179,11 +174,11 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename, char *shaFile){
     } while(1);
 
     if (fileCount==1){
-        updateRootDir(file_content, disk, filename, nEntries1, currCluster1);
-        
+        updateRootDir(file_content, disk, filename, nEntries1);
+
         int n_Clusters = nOfContiguousCluster(disk, dirEntry1);
         if (n_Clusters>1){
-            int startCluster = dirEntry1->DIR_FstClusHI << 2 | dirEntry1->DIR_FstClusLO;
+            int startCluster = dirEntry1->DIR_FstClusHI << 16 | dirEntry1->DIR_FstClusLO;
             for(int i=1;i<n_Clusters;i++){
                 updateFat(file_content , disk, startCluster, startCluster+1);
                 startCluster++;
@@ -191,10 +186,13 @@ int getDeletedDirEntry(int fd, BootEntry* disk, char *filename, char *shaFile){
             updateFat(file_content , disk, startCluster, 0x0ffffff8);
         }
         else
-            updateFat(file_content , disk, currCluster1+1, 0x0ffffff8); // why +1 ?? but works
+            updateFat(file_content , disk, currCluster1+1, 0x0ffffff8);
         unmapDisk(file_content, fs.st_size);
-                        
-        printf("%s: successfully recovered\n",filename);
+
+        if (shaFile)
+            printf("%s: successfully recovered with SHA-1\n",filename);
+        else
+            printf("%s: successfully recovered\n",filename);
         fflush(stdout);
         return 1;
     }
